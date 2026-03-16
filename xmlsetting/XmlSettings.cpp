@@ -1,225 +1,230 @@
-#include <QTextStream>
-#include <QDebug>
 #include "XmlSettings.h"
+#include "tinyxml2.h"
 
-QSettings::Format XMLSettings::m_format = QSettings::registerFormat("xml", readXmlFile, writeXmlFile);
-#define XMLSETTINGS_KEY_ROOT "Root" //Root键值
-#define XMLSETTINGS_DEFAULT_ROOT "Station" //默认Root
+#include <set>
+#include <sstream>
 
-XMLSettings::XMLSettings(const QString &qStrFileName, QObject *parent)
-    :QSettings(qStrFileName, m_format, parent)
+using namespace tinyxml2;
+
+static const char* KEY_ROOT = "Root";
+static const char* DEFAULT_ROOT = "Station";
+
+// ─── 辅助：将扁平化 key（如 "GroupA/SubGroup/key1"）解析为路径段 ──────────────
+static std::vector<std::string> splitPath(const std::string& key)
 {
-}
-
-//设置根节点
-void XMLSettings::setRoot( const QString& strRoot )
-{
-    QSettings::setValue( XMLSETTINGS_KEY_ROOT, strRoot );
-}
-
-/*************************************************
-函数名： setValue(const QString &qStrKey, const QString &qStrValue)
-输入参数： qStrKey：键
-          qStrValue：值
-输出参数： NULL
-返回值： NULL
-功能： 设置键对应的值
-*************************************************************/
-void XMLSettings::setValue(const QString &qStrKey, const QString &qStrValue)
-{
-    QSettings::setValue(qStrKey, qStrValue);
-}
-
-/*************************************************
-函数名： setValue(const QString &qStrKey, const double &dValue)
-输入参数： qStrKey：键
-          dValue：值
-输出参数： NULL
-返回值： NULL
-功能： 设置键对应的值
-*************************************************************/
-void XMLSettings::setValue(const QString &qStrKey, const double &dValue)
-{
-    QSettings::setValue(qStrKey, QString::number(dValue));
-}
-
-/*************************************************
-函数名： value(const QString &qStrKey, const QVariant &defaultValue)
-输入参数： qStrKey：键
-          defaultValue：默认键值
-输出参数： NULL
-返回值： 键值
-功能： 获取键对应的值
-*************************************************************/
-QString XMLSettings::value(const QString &qStrKey, const QVariant &defaultValue) const
-{
-    return QSettings::value(qStrKey, defaultValue).toString();
-}
-
-/*************************************************
-函数名： readXmlFile(QIODevice &qIODevice, QSettings::SettingsMap &qSettingsMap)
-输入参数： qIODevice：读设备
-输出参数： qSettingsMap：QSettings键值映射
-返回值： 操作结果
-功能： 从xml文件读取数据到QSettings
-*************************************************************/
-bool XMLSettings::readXmlFile(QIODevice &qIODevice, QSettings::SettingsMap &qSettingsMap)
-{
-    QDomDocument qDomDoc;
-    QString strError;
-    int iErrorLine;
-    int iErrorColumn;
-    if( !qDomDoc.setContent(&qIODevice,&strError,&iErrorLine,&iErrorColumn) )
-    {
-        qWarning() << "XMLSettings::readXmlFile: error " << strError << "line:" << iErrorLine << "column:" << iErrorColumn;
-        return false;
-    }
-
-    QDomElement qRoot = qDomDoc.documentElement();
-    QDomNodeList qNodeList = qRoot.childNodes();
-
-    for (int i = 0; i < qNodeList.count(); i++)
-    {
-        QDomNode qDomNode = qNodeList.at(i);
-        if (qDomNode.isElement())
-        {
-            QString strGroup = qDomNode.toElement().tagName();
-            parseNode(qDomNode, strGroup, qSettingsMap);
-        }
-    }
-    qSettingsMap.insert( XMLSETTINGS_KEY_ROOT, qRoot.nodeName() );
-
-    return true;
-}
-
-/*************************************************
-函数名： parseNode(const QDomNode &qDomNode, const QString &qStrNode, QSettings::SettingsMap &qSettingsMap)
-输入参数： qDomNode：QDomNode节点
-          qStrNode：节点名称
-输出参数： qSettingsMap：QSettings键值映射
-返回值： NULL
-功能： 解析当前节点
-*************************************************************/
-void XMLSettings::parseNode(const QDomNode &qDomNode, const QString &qStrNode, QSettings::SettingsMap &qSettingsMap)
-{
-    QDomNodeList qNodeList = qDomNode.childNodes();
-
-    for (int i = 0; i < qNodeList.count(); i++)
-    {
-        QDomNode qNodeSon = qNodeList.at(i);
-        if (qNodeSon.isElement())
-        {
-            QString strGroupSon = qStrNode + "/" + qNodeSon.toElement().tagName();
-            parseNode(qNodeSon, strGroupSon, qSettingsMap);
-        }
-
-        if (qNodeSon.isText())
-        {
-            qSettingsMap.insert(qStrNode, qNodeSon.toText().data());
-        }
-    }
-}
-
-/*************************************************
-函数名： writeXmlFile(QIODevice &qIODevice, const QSettings::SettingsMap &qSettingsMap)
-输入参数： qIODevice：写设备
-          qSettingsMap：QSettings键值映射
-输出参数： NULL
-返回值： 操作结果
-功能： 将QSettings的数据写入xml文件
-*************************************************************/
-bool XMLSettings::writeXmlFile(QIODevice &qIODevice, const QSettings::SettingsMap &qSettingsMap)
-{
-    QDomDocument qDomDoc;
-    QDomProcessingInstruction qInstruction;
-
-    //创建xml文件头
-    qInstruction = qDomDoc.createProcessingInstruction("xml", "version=\"1.0\" encoding=\"UTF-8\"");
-    qDomDoc.appendChild(qInstruction);
-
-    //创建根节点
-    QString strRoot = qSettingsMap.value( XMLSETTINGS_KEY_ROOT, XMLSETTINGS_DEFAULT_ROOT ).toString();
-    QDomElement qRoot = qDomDoc.createElement( strRoot );
-    qDomDoc.appendChild(qRoot);
-
-    //遍历key/value映射表，写入qDomDoc
-    for (QSettings::SettingsMap::const_iterator j = qSettingsMap.constBegin(); j != qSettingsMap.constEnd(); j++)
-    {
-        if( XMLSETTINGS_KEY_ROOT != j.key() )
-        {
-            writeKeyToFile(qDomDoc, j.key(), j.value());
-        }
-    }
-
-    //写入文件
-    QTextStream out(&qIODevice);
-    out.setCodec("UTF-8");
-    qDomDoc.save(out, 4, QDomNode::EncodingFromTextStream);
-
-    return true;
-}
-
-/*************************************************
-函数名： writeKeyToFile(QDomDocument &qDomDoc, const QString &qKey, const QVariant &qValue)
-输入参数： qDomDoc：QDomDocument对象
-          qKey：键
-          qValue：值
-输出参数： NULL
-返回值： NULL
-功能： 将单个键值对写入QDomDocument
-*************************************************************/
-void XMLSettings::writeKeyToFile(QDomDocument &qDomDoc, const QString &qKey, const QVariant &qValue)
-{
-    int iSlashPos = qKey.indexOf(QLatin1Char('/'));
-    QString strGroupName;
-    QString strTmpKey = qKey;
-    QDomElement elemFather;
-    QDomElement qRoot = qDomDoc.documentElement();
-
-    if (iSlashPos != -1)  //判断是否为根节点下的元素
-    {
-        strGroupName = strTmpKey.left(iSlashPos);
-        strTmpKey.remove(0, iSlashPos + 1);
-
-        //判断Group是否已存在
-        elemFather = qRoot.firstChildElement(strGroupName);
-        if (elemFather.isNull())
-        {
-            elemFather = qDomDoc.createElement(strGroupName);
-            qRoot.appendChild(elemFather);
-        }
-        iSlashPos = strTmpKey.indexOf(QLatin1Char('/'));
-
-        //递归建立所有子Group
-        while (iSlashPos != -1)
-        {
-            strGroupName = strTmpKey.left(iSlashPos);
-            strTmpKey.remove(0, iSlashPos + 1);
-
-            QDomElement elem = elemFather.firstChildElement(strGroupName);
-            if (elem.isNull())
-            {
-                elem = qDomDoc.createElement(strGroupName);
-                elemFather.appendChild(elem);
+    std::vector<std::string> parts;
+    std::string token;
+    for (char c : key) {
+        if (c == '/') {
+            if (!token.empty()) {
+                parts.push_back(token);
+                token.clear();
             }
-
-            elemFather = elem;
-            iSlashPos = strTmpKey.indexOf(QLatin1Char('/'));
+        } else {
+            token += c;
         }
-
-        //建立最后一个key
-        QDomElement elem = qDomDoc.createElement(strTmpKey);
-        elemFather.appendChild(elem);
-        elemFather = elem;
     }
-    else  //根节点下的元素
+    if (!token.empty()) {
+        parts.push_back(token);
+    }
+    return parts;
+}
+
+// ─── 辅助：递归解析 tinyxml2 节点到 flat map ────────────────────────────────
+static void parseNode(XMLElement* elem, const std::string& prefix,
+                      std::map<std::string, std::string>& map)
+{
+    if (elem == nullptr) return;
+
+    for (XMLElement* child = elem->FirstChildElement(); child != nullptr;
+         child = child->NextSiblingElement())
     {
-        elemFather = qDomDoc.createElement(strTmpKey);
-        qRoot.appendChild(elemFather);
+        std::string childPath = prefix.empty() ? child->Name()
+                                               : prefix + "/" + child->Name();
+
+        // 叶节点：没有子元素，取文本内容
+        if (child->FirstChildElement() == nullptr) {
+            const char* text = child->GetText();
+            map[childPath] = text ? text : "";
+        } else {
+            parseNode(child, childPath, map);
+        }
+    }
+}
+
+// ─── 辅助：将扁平 map 写入 XMLDocument ──────────────────────────────────────
+static void writeKeyToDoc(XMLDocument& doc, XMLElement* root,
+                          const std::string& key, const std::string& val)
+{
+    std::vector<std::string> parts = splitPath(key);
+    if (parts.empty()) return;
+
+    XMLElement* cur = root;
+    for (size_t i = 0; i + 1 < parts.size(); ++i) {
+        XMLElement* child = cur->FirstChildElement(parts[i].c_str());
+        if (child == nullptr) {
+            child = doc.NewElement(parts[i].c_str());
+            cur->InsertEndChild(child);
+        }
+        cur = child;
     }
 
-    //写入value
-    QString strValue = qValue.toString();
-    QDomText qText = qDomDoc.createTextNode(strValue);
-    elemFather.appendChild(qText);
+    // 最后一段是叶节点
+    const std::string& leafName = parts.back();
+    XMLElement* leaf = doc.NewElement(leafName.c_str());
+    leaf->SetText(val.c_str());
+    cur->InsertEndChild(leaf);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
+XMLSettings::XMLSettings(const std::string& fileName)
+    : m_fileName(fileName), m_root(DEFAULT_ROOT)
+{
+    load();
+}
+
+void XMLSettings::setRoot(const std::string& root)
+{
+    m_root = root;
+    m_map[KEY_ROOT] = root;
+}
+
+std::string XMLSettings::fullKey(const std::string& key) const
+{
+    if (m_groupStack.empty()) return key;
+
+    std::string prefix;
+    for (const auto& g : m_groupStack) {
+        if (!prefix.empty()) prefix += '/';
+        prefix += g;
+    }
+    return prefix + '/' + key;
+}
+
+void XMLSettings::setValue(const std::string& key, const std::string& value)
+{
+    m_map[fullKey(key)] = value;
+}
+
+void XMLSettings::setValue(const std::string& key, double value)
+{
+    // 去掉尾部多余的 0（模拟 Qt 的 QString::number 行为）
+    std::ostringstream oss;
+    oss << value;
+    setValue(key, oss.str());
+}
+
+std::string XMLSettings::value(const std::string& key,
+                               const std::string& defaultValue) const
+{
+    auto it = m_map.find(fullKey(key));
+    if (it != m_map.end()) return it->second;
+    return defaultValue;
+}
+
+void XMLSettings::beginGroup(const std::string& prefix)
+{
+    m_groupStack.push_back(prefix);
+}
+
+void XMLSettings::endGroup()
+{
+    if (!m_groupStack.empty()) {
+        m_groupStack.pop_back();
+    }
+}
+
+bool XMLSettings::contains(const std::string& key) const
+{
+    return m_map.count(fullKey(key)) > 0;
+}
+
+void XMLSettings::remove(const std::string& key)
+{
+    // 删除完整路径 key 本身，以及所有以 key+"/" 开头的子项
+    auto it = m_map.begin();
+    while (it != m_map.end()) {
+        if (it->first == key ||
+            (it->first.size() > key.size() &&
+             it->first.compare(0, key.size() + 1, key + '/') == 0))
+        {
+            it = m_map.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void XMLSettings::clear()
+{
+    m_map.clear();
+}
+
+void XMLSettings::sync()
+{
+    XMLDocument doc;
+
+    // XML 声明
+    doc.InsertFirstChild(doc.NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\""));
+
+    // 根节点
+    std::string rootName = m_root.empty() ? DEFAULT_ROOT : m_root;
+    auto it = m_map.find(KEY_ROOT);
+    if (it != m_map.end() && !it->second.empty()) {
+        rootName = it->second;
+    }
+    XMLElement* root = doc.NewElement(rootName.c_str());
+    doc.InsertEndChild(root);
+
+    // 写入所有 key（跳过 Root 元键）
+    for (const auto& kv : m_map) {
+        if (kv.first == KEY_ROOT) continue;
+        writeKeyToDoc(doc, root, kv.first, kv.second);
+    }
+
+    doc.SaveFile(m_fileName.c_str());
+}
+
+int XMLSettings::childGroupCount(const std::string& groupPrefix) const
+{
+    // 统计直接子 group 数量：前缀下恰好多一段路径的唯一段
+    std::string base = groupPrefix.empty() ? "" : groupPrefix + '/';
+    std::set<std::string> children;
+
+    for (const auto& kv : m_map) {
+        if (kv.first == KEY_ROOT) continue;
+        const std::string& k = kv.first;
+        if (k.compare(0, base.size(), base) == 0) {
+            std::string rest = k.substr(base.size());
+            size_t slash = rest.find('/');
+            if (slash != std::string::npos) {
+                children.insert(rest.substr(0, slash));
+            }
+        }
+    }
+    return static_cast<int>(children.size());
+}
+
+std::string XMLSettings::fileName() const
+{
+    return m_fileName;
+}
+
+void XMLSettings::load()
+{
+    m_map.clear();
+
+    XMLDocument doc;
+    if (doc.LoadFile(m_fileName.c_str()) != XML_SUCCESS) {
+        return;  // 文件不存在或解析失败，保持空 map
+    }
+
+    XMLElement* root = doc.RootElement();
+    if (root == nullptr) return;
+
+    m_root = root->Name();
+    m_map[KEY_ROOT] = m_root;
+
+    parseNode(root, "", m_map);
 }

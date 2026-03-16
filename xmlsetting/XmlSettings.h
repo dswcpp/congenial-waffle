@@ -1,51 +1,62 @@
-/*
-* Copyright (c) 2016.08，南京华乘电气科技有限公司
-* All rights reserved.
-*
-* xmlsettings.h
-*
-* 初始版本：1.0
-* 作者：周定宇
-* 创建日期：2016年08月12日
-* 摘要：xml格式的配置文件管理，基于QSettings
-* 当前版本：1.0
-*/
+#pragma once
 
-#ifndef XMLSETTINGS_H
-#define XMLSETTINGS_H
+#include <map>
+#include <string>
+#include <vector>
 
-#include <QSettings>
-#include <QDomDocument>
-#include <QStringList>
-#include "service_global.h"
-class SERVICESHARED_EXPORT XMLSettings : public QSettings
+/**
+ * @brief XML 格式的配置文件管理，替代原基于 QSettings 的实现。
+ *
+ * 内部使用扁平化 key-value map，key 路径以 '/' 分隔（与 QSettings 行为一致）。
+ * 通过 tinyxml2 实现 XML 读写。
+ */
+class XMLSettings
 {
 public:
-    XMLSettings(const QString &qStrFileName, QObject *parent = 0);
+    explicit XMLSettings(const std::string& fileName);
+    ~XMLSettings() = default;
 
-    //设置根节点
-    void setRoot( const QString& strRoot );
+    // 设置根节点名称
+    void setRoot(const std::string& root);
 
-    //设置键对应的值
-    void setValue(const QString &qStrKey, const QString &qStrValue);
-    void setValue(const QString &qStrKey, const double &dValue);
+    // 设置键值（相对于当前 group 前缀）
+    void setValue(const std::string& key, const std::string& value);
+    void setValue(const std::string& key, double value);
 
-    //获取键对应的值
-    QString value(const QString &qStrKey, const QVariant &defaultValue = QVariant()) const;
+    // 获取键值，不存在时返回 defaultValue
+    std::string value(const std::string& key, const std::string& defaultValue = "") const;
+
+    // 进入/退出 group（影响后续 setValue/value 的 key 前缀）
+    void beginGroup(const std::string& prefix);
+    void endGroup();
+
+    // 判断当前完整路径的 key 是否存在
+    bool contains(const std::string& key) const;
+
+    // 删除以 key（完整路径）为前缀的所有条目
+    void remove(const std::string& key);
+
+    // 清除所有键值
+    void clear();
+
+    // 将内存中的 map 写入 XML 文件
+    void sync();
+
+    // 返回当前 group 前缀下直接子 group 的数量
+    int childGroupCount(const std::string& groupPrefix) const;
+
+    // 返回文件名
+    std::string fileName() const;
+
 private:
-    //从xml文件读取数据到QSettings
-    static bool readXmlFile(QIODevice &qIODevice, QSettings::SettingsMap &qSettingsMap);
+    // 将相对 key 转换为带当前前缀的完整 key
+    std::string fullKey(const std::string& key) const;
 
-    //将QSettings的数据写入xml文件
-    static bool writeXmlFile(QIODevice &qIODevice, const QSettings::SettingsMap &qSettingsMap);
+    // 从 XML 文件加载到 map
+    void load();
 
-    //将单个键值对写入QDomDocument
-    static void writeKeyToFile(QDomDocument &qDomDoc,const QString &qKey,const QVariant &qValue);
-
-    //解析当前节点
-    static void parseNode(const QDomNode &qDomNode, const QString &qStrNode, QSettings::SettingsMap &qSettingsMap);
-
-    static Format m_format;  //QSettings自定义文件格式
+    std::string m_fileName;
+    std::string m_root;
+    std::map<std::string, std::string> m_map;
+    std::vector<std::string> m_groupStack;  // beginGroup 的路径栈
 };
-
-#endif // XMLSETTINGS_H
