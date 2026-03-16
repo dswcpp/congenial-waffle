@@ -10,7 +10,12 @@
       "Bash(SDK_VER=\"10.0.19041.0\")",
       "Bash(WIN_SDK=\"/c/Program Files \\(x86\\)/Windows Kits/10\")",
       "Bash(__NEW_LINE_49024eba7b9a893f__ cd:*)",
-      "Bash(__NEW_LINE_49024eba7b9a893f__ cmake:*)"
+      "Bash(__NEW_LINE_49024eba7b9a893f__ cmake:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(make clean:*)",
+      "Bash(g++ -std=c++17 -Wall -Wextra -Wpedantic -O2 -o config_test test/config_test.cpp -I. -L. -lconfig -Wl,-rpath,. 2>&1)",
+      "Bash(./config_test 2>&1)"
     ]
   }
 }

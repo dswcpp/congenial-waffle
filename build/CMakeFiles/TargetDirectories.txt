@@ -1,4 +1,0 @@
-D:/code/CPlusPlus/congenial-waffle/build/CMakeFiles/config_lib.dir
-D:/code/CPlusPlus/congenial-waffle/build/CMakeFiles/config_test.dir
-D:/code/CPlusPlus/congenial-waffle/build/CMakeFiles/edit_cache.dir
-D:/code/CPlusPlus/congenial-waffle/build/CMakeFiles/rebuild_cache.dir
