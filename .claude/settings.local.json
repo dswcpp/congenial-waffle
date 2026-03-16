@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(MSVC_BIN=\"/c/Program Files \\(x86\\)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64\" \"$MSVC_BIN/cl.exe\")",
+      "Bash('MSVC_ROOT=/c/Program Files \\(x86\\)/Microsoft Visual Studio/18/BuildTools' MSVC_VER=14.50.35717 MSVC_BIN=$MSVC_ROOT/VC/Tools/MSVC/$MSVC_VER/bin/Hostx64/x64 'WIN_SDK_ROOT=/c/Program Files \\(x86\\)/Windows Kits/10' ls $WIN_SDK_ROOT/Include/)",
+      "Read(//d/code/CPlusPlus/congenial-waffle/$WIN_SDK_ROOT/**)",
+      "Bash(MSVC_ROOT=\"/c/Program Files \\(x86\\)/Microsoft Visual Studio/18/BuildTools\")",
+      "Bash(MSVC_VER=\"14.50.35717\")",
+      "Bash(MSVC_BIN=\"$MSVC_ROOT/VC/Tools/MSVC/$MSVC_VER/bin/Hostx64/x64\")",
+      "Bash(SDK_VER=\"10.0.19041.0\")",
+      "Bash(WIN_SDK=\"/c/Program Files \\(x86\\)/Windows Kits/10\")",
+      "Bash(__NEW_LINE_49024eba7b9a893f__ cd:*)",
+      "Bash(__NEW_LINE_49024eba7b9a893f__ cmake:*)"
+    ]
+  }
+}

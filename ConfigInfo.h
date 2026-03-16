@@ -45,14 +45,13 @@ namespace Config
     //组键
     typedef struct _GroupKey
     {
-        _GroupKey( KeyCode eKey = -1, GroupCode eGroup = CURRENT_GROUP )
-        {
-            group = eGroup;
-            key = eKey;
-        }
-
         GroupCode group;
         KeyCode key;
+
+        _GroupKey( KeyCode eKey = -1, GroupCode eGroup = CURRENT_GROUP )
+            : group(eGroup), key(eKey)
+        {
+        }
 
         bool operator < (const _GroupKey &other) const
         {

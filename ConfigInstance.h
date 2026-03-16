@@ -7,7 +7,7 @@
 * 作者：duanshengwei
 * 创建日期：2026年03月16日
 * 摘要：配置接口
-* 当前版本：2.0（移除 Qt 依赖）
+* 当前版本：2.0
 */
 #ifndef CONFIGINSTANCE_H
 #define CONFIGINSTANCE_H
@@ -16,8 +16,18 @@
 #include "ConfigInfo.h"
 
 #include <mutex>
+#include <ostream>
 #include <string>
 #include <vector>
+
+// 空日志宏：吞掉所有 << 操作，零开销
+namespace detail {
+struct NullStream {
+    template<typename T>
+    NullStream& operator<<(const T&) { return *this; }
+};
+}
+#define CONFIG_LOG() detail::NullStream{}
 
 class ConfigInstance
 {

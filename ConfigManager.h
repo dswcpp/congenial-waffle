@@ -18,10 +18,6 @@
 #include "ConfigInfo.h"
 #include "ConfigInstance.h"
 
-// 日志宏：若外部注入了 Logger，则使用；否则为空操作。
-// Logger 接口由调用方提供，此处仅保留宏的形态以保持兼容。
-#define CONFIG_LOG() if(false) (void)0 //(void)
-
 #define CONFIG_DEFAULT -1
 
 class ConfigManager
