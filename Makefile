@@ -6,8 +6,7 @@ LDFLAGS  := -shared
 BUILD_DIR := build
 TARGET    := $(BUILD_DIR)/libconfig.so
 
-SRCS := ConfigInfo.cpp \
-        ConfigInstance.cpp \
+SRCS := ConfigInstance.cpp \
         ConfigManager.cpp \
         xmlsetting/XmlSettings.cpp \
         xmlsetting/tinyxml2.cpp

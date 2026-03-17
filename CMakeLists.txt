@@ -11,7 +11,6 @@ endif()
 
 # ── 库源文件 ──────────────────────────────────────────────────────────────────
 add_library(config_lib STATIC
-    ConfigInfo.cpp
     ConfigInstance.cpp
     ConfigManager.cpp
     xmlsetting/XmlSettings.cpp

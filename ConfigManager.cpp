@@ -1,15 +1,12 @@
 #include "ConfigManager.h"
 
-std::map<int, ConfigInstance*> ConfigManager::m_mapConfigs;
-std::recursive_mutex ConfigManager::m_mutex;
-
 ConfigManager::ConfigManager()
 {
 }
 
 ConfigManager* ConfigManager::instance()
 {
-    std::lock_guard<std::recursive_mutex> locker(m_mutex);
+    // Meyer's Singleton: C++11 保证局部 static 变量的线程安全初始化
     static ConfigManager configManager;
     return &configManager;
 }
@@ -20,7 +17,6 @@ ConfigManager::~ConfigManager()
     for( auto& kv : m_mapConfigs )
     {
         kv.second->save();
-        delete kv.second;
     }
     m_mapConfigs.clear();
 }
@@ -48,7 +44,7 @@ Config::ErrorCode ConfigManager::addConfig( Config::ConfigInfo* pInfo,
         }
         else
         {
-            m_mapConfigs[pInfo->iCode] = new ConfigInstance( pInfo, eMode, iLoopCount );
+            m_mapConfigs[pInfo->iCode] = std::make_unique<ConfigInstance>( pInfo, eMode, iLoopCount );
         }
     }
 
@@ -61,10 +57,10 @@ ConfigInstance* ConfigManager::config( int iConfigCode )
 
     auto it = m_mapConfigs.find( iConfigCode );
     if( it != m_mapConfigs.end() )
-        return it->second;
+        return it->second.get();
 
     if( ( CONFIG_DEFAULT == iConfigCode ) && ( !m_mapConfigs.empty() ) )
-        return m_mapConfigs.begin()->second;
+        return m_mapConfigs.begin()->second.get();
 
     return nullptr;
 }

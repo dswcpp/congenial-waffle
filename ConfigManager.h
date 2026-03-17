@@ -13,19 +13,11 @@
 #define CONFIGMANAGE_H
 
 #include <map>
+#include <memory>
 #include <mutex>
 
 #include "ConfigInfo.h"
 #include "ConfigInstance.h"
-
-// 日志宏：若外部注入了 Logger，则使用；否则为空操作。
-// Logger 接口由调用方提供，此处仅保留宏的形态以保持兼容。
-#include <sstream>
-struct NullStream {
-    template<typename T>
-    NullStream& operator<<(const T&) { return *this; }
-};
-#define CONFIG_LOG() if(false) NullStream()
 
 #define CONFIG_DEFAULT -1
 
@@ -47,8 +39,8 @@ private:
     ~ConfigManager();
 
 private:
-    static std::map<int, ConfigInstance*> m_mapConfigs;
-    static std::recursive_mutex m_mutex;
+    std::map<int, std::unique_ptr<ConfigInstance>> m_mapConfigs;
+    std::recursive_mutex m_mutex;
 };
 
 #endif // CONFIGMANAGE_H

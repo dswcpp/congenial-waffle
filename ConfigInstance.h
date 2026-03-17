@@ -15,6 +15,7 @@
 #include "xmlsetting/XmlSettings.h"
 #include "ConfigInfo.h"
 
+#include <memory>
 #include <mutex>
 #include <ostream>
 #include <string>
@@ -103,16 +104,15 @@ private:
     int m_iCode;
     Config::ConfigInfo* m_pInfo;
     Config::Mode m_eMode;
-    XMLSettings* m_pSetting;
-    std::string m_strFileName;
-
-    mutable std::recursive_mutex m_mutex;
 
     int m_iLoopCount;
     int m_iLoopNumber;
     Config::ErrorCode m_lastError;
-
     Config::GroupInfo* m_pCurrentGroup;
+    std::unique_ptr<XMLSettings> m_pSetting;
+    std::string m_strFileName;
+
+    mutable std::recursive_mutex m_mutex;
 
     std::vector<GroupItem> m_vecGroupEntered;
     std::vector<Config::GroupCode> m_vecGroupItemEntered;

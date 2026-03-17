@@ -152,6 +152,105 @@ bool test_config_manager()
     return true;
 }
 
+// ── 错误场景测试 ─────────────────────────────────────────────────────────────
+
+bool test_invalid_group_key()
+{
+    std::cout << "\n=== test_invalid_group_key ===\n";
+    Config::ConfigInfo ci = cfgInfo;
+    ci.strFileName = "test_error.xml";
+    ConfigInstance inst(&ci);
+
+    // 不存在的组
+    std::string val = inst.value(KEY_IP, static_cast<Config::GroupCode>(999));
+    CHECK(inst.lastError() == Config::GROUP_NOT_EXIST);
+
+    // 不存在的键
+    val = inst.value(static_cast<Config::KeyCode>(999), GRP_MAIN);
+    CHECK(inst.lastError() == Config::KEY_NOT_EXIST);
+
+    // 写入不存在的组
+    inst.setValue("test", static_cast<Config::KeyCode>(999), GRP_MAIN);
+    CHECK(inst.lastError() == Config::KEY_NOT_EXIST);
+
+    return true;
+}
+
+bool test_number_out_of_range()
+{
+    std::cout << "\n=== test_number_out_of_range ===\n";
+    Config::ConfigInfo ci = cfgInfo;
+    ci.strFileName = "test_range.xml";
+    ConfigInstance inst(&ci);
+
+    // port 范围是 1~65535，写入 0 应报超范围
+    inst.setValue(0.0, KEY_PORT, GRP_MAIN);
+    CHECK(inst.lastError() == Config::DATA_OUT_OF_RANGE);
+
+    // 写入 99999 也应报超范围
+    inst.setValue(99999.0, KEY_PORT, GRP_MAIN);
+    CHECK(inst.lastError() == Config::DATA_OUT_OF_RANGE);
+
+    // 写入有效值应成功
+    inst.setValue(443.0, KEY_PORT, GRP_MAIN);
+    CHECK(inst.value(KEY_PORT, GRP_MAIN) == "443");
+
+    return true;
+}
+
+bool test_datetime_validation()
+{
+    std::cout << "\n=== test_datetime_validation ===\n";
+
+    // 创建一个带 DATETIME 类型键的配置
+    enum { KEY_DATE = 10, GRP_DT = 10 };
+    static Config::KeyInfo keysDate[] = {
+        { KEY_DATE, "date", Config::DATETIME, "2026-01-01", 0, 0 },
+    };
+    static Config::GroupInfo groupDate = { GRP_DT, Config::NORMAL, "DateGroup", keysDate, 1, nullptr, 0 };
+    static Config::GroupInfo* groupsDate[] = { &groupDate };
+    static Config::ConfigInfo ciDate = { 99, "test_datetime.xml", "Config", groupsDate, 1 };
+
+    ConfigInstance inst(&ciDate);
+
+    // 有效日期
+    inst.setValue("2026-03-15", KEY_DATE, GRP_DT);
+    CHECK(inst.lastError() == Config::ERROR_NONE);
+
+    // 有效日期时间
+    inst.setValue("2026-03-15T10:30:00", KEY_DATE, GRP_DT);
+    CHECK(inst.lastError() == Config::ERROR_NONE);
+
+    // 无效格式
+    inst.setValue("not-a-date", KEY_DATE, GRP_DT);
+    CHECK(inst.lastError() == Config::DATA_INVALID);
+
+    // 月份超范围（13月）
+    inst.setValue("2026-13-01", KEY_DATE, GRP_DT);
+    CHECK(inst.lastError() == Config::DATA_INVALID);
+
+    // 日超范围（32日）
+    inst.setValue("2026-01-32", KEY_DATE, GRP_DT);
+    CHECK(inst.lastError() == Config::DATA_INVALID);
+
+    // 月份为 0
+    inst.setValue("2026-00-15", KEY_DATE, GRP_DT);
+    CHECK(inst.lastError() == Config::DATA_INVALID);
+
+    return true;
+}
+
+bool test_addconfig_null()
+{
+    std::cout << "\n=== test_addconfig_null ===\n";
+    auto* mgr = ConfigManager::instance();
+
+    // nullptr 输入
+    CHECK(mgr->addConfig(nullptr) == Config::INPUT_ERROR);
+
+    return true;
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 int main()
 {
@@ -161,10 +260,15 @@ int main()
     ok &= test_restore_default();
     ok &= test_array_mode();
     ok &= test_config_manager();
+    ok &= test_invalid_group_key();
+    ok &= test_number_out_of_range();
+    ok &= test_datetime_validation();
+    ok &= test_addconfig_null();
 
     // 清理生成的 xml 文件
     for (const char* f : {"test_config.xml", "test_nonexistent.xml",
-                           "test_restore.xml", "test_array.xml", "test_manager.xml"}) {
+                           "test_restore.xml", "test_array.xml", "test_manager.xml",
+                           "test_error.xml", "test_range.xml", "test_datetime.xml"}) {
         fs::remove(f);
     }
 

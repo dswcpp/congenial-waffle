@@ -10,6 +10,7 @@
 #include <string>
 
 #ifdef __linux__
+#include <fcntl.h>
 #include <unistd.h>
 #endif
 
@@ -43,8 +44,7 @@ ConfigInstance::ConfigInstance( Config::ConfigInfo* pInfo, Config::Mode eMode, i
 ConfigInstance::~ConfigInstance()
 {
     std::lock_guard<std::recursive_mutex> locker(m_mutex);
-    delete m_pSetting;
-    m_pSetting = nullptr;
+    m_pSetting.reset();
 }
 
 // ─── load / initFromFile ─────────────────────────────────────────────────────
@@ -54,8 +54,7 @@ Config::ErrorCode ConfigInstance::load( const std::string& strFile )
     m_lastError = Config::ERROR_NONE;
     Config::ErrorCode code = Config::ERROR_NONE;
 
-    delete m_pSetting;
-    m_pSetting = new XMLSettings( strFile );
+    m_pSetting = std::make_unique<XMLSettings>( strFile );
 
     if( Config::LOOP == m_eMode )
     {
@@ -245,13 +244,24 @@ Config::ErrorCode ConfigInstance::checkKeyValueValid( const std::string& strValu
     }
     case Config::DATETIME:
     {
-        // 简单检查 ISO8601 格式：YYYY-MM-DDTHH:MM:SS 或 YYYY-MM-DD
+        // 检查 ISO8601 格式：YYYY-MM-DDTHH:MM:SS 或 YYYY-MM-DD
         static const std::regex isoDate(
-            R"(\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?)" );
-        if( !std::regex_match( strValue, isoDate ) )
+            R"((\d{4})-(\d{2})-(\d{2})(T\d{2}:\d{2}:\d{2})?)" );
+        std::smatch match;
+        if( !std::regex_match( strValue, match, isoDate ) )
         {
             code = Config::DATA_INVALID;
             CONFIG_LOG() << "Key: " << pInfo->strName << " datetime not valid!";
+        }
+        else
+        {
+            int month = std::stoi( match[2].str() );
+            int day   = std::stoi( match[3].str() );
+            if( month < 1 || month > 12 || day < 1 || day > 31 )
+            {
+                code = Config::DATA_INVALID;
+                CONFIG_LOG() << "Key: " << pInfo->strName << " datetime month/day out of range!";
+            }
         }
         break;
     }
@@ -375,6 +385,7 @@ void ConfigInstance::setDefaultValue( const std::string& strDefaultValue, Config
 
 void ConfigInstance::removeGroup( Config::GroupCode eGroup )
 {
+    std::lock_guard<std::recursive_mutex> locker(m_mutex);
     Config::GroupInfo* pGroupInfo = getGroupInfo( eGroup );
     if( pGroupInfo != nullptr )
         m_pSetting->remove( pGroupInfo->strName );
@@ -477,7 +488,7 @@ void ConfigInstance::endGroup()
     if( !m_vecGroupEntered.empty() )
     {
         m_pSetting->endGroup();
-        m_vecGroupEntered.erase( m_vecGroupEntered.end() - 1 );
+        m_vecGroupEntered.pop_back();
 
         if( !m_vecGroupEntered.empty() )
             m_pCurrentGroup = m_vecGroupEntered.back().pInfo;
@@ -566,7 +577,7 @@ void ConfigInstance::endItem()
     {
         m_pSetting->endGroup();
         if( !m_vecGroupItemEntered.empty() )
-            m_vecGroupItemEntered.erase( m_vecGroupItemEntered.end() - 1 );
+            m_vecGroupItemEntered.pop_back();
         else
         {
             setLastError( Config::INVALID_USE_OF_ARRAYMODE );
@@ -815,14 +826,29 @@ void ConfigInstance::save()
         // 删除目标文件（如存在），再拷贝
         std::error_code ec;
         fs::remove( strNextFile, ec );
+        if( ec )
+        {
+            CONFIG_LOG() << "ConfigInstance::save: failed to remove " << strNextFile << ": " << ec.message();
+        }
         fs::copy_file( m_pSetting->fileName(), strNextFile,
                        fs::copy_options::overwrite_existing, ec );
+        if( ec )
+        {
+            CONFIG_LOG() << "ConfigInstance::save: failed to copy to " << strNextFile << ": " << ec.message();
+        }
 
         initFromFile( strNextFile );
     }
 
 #ifdef __linux__
-    sync();
+    {
+        int fd = ::open( m_pSetting->fileName().c_str(), O_RDONLY );
+        if( fd >= 0 )
+        {
+            ::fsync( fd );
+            ::close( fd );
+        }
+    }
 #endif
 }
 

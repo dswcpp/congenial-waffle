@@ -15,7 +15,10 @@
       "Bash(git add:*)",
       "Bash(make clean:*)",
       "Bash(g++ -std=c++17 -Wall -Wextra -Wpedantic -O2 -o config_test test/config_test.cpp -I. -L. -lconfig -Wl,-rpath,. 2>&1)",
-      "Bash(./config_test 2>&1)"
+      "Bash(./config_test 2>&1)",
+      "Bash(make)",
+      "Bash(g++ -std=c++17 -Wall -Wextra -Wpedantic -O2 -o build/config_test test/config_test.cpp -I. -Lbuild -lconfig -Wl,-rpath,build)",
+      "Bash(./build/config_test)"
     ]
   }
 }
